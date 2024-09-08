@@ -1,10 +1,10 @@
-# WeatherLearning - Tech Challenge Fiap - Desenvolvedores
+# Tech Challenge Fiap - Desenvolvedores
 
 - Gabriel Sargeiro ([LinkedIn](https://www.linkedin.com/in/gabriel-sargeiro/))
 - Guilherme Lobo ([LinkedIn](https://www.linkedin.com/in/guilhermegclobo/))
 - Matheus Moura ([LinkedIn](https://www.linkedin.com/in/matheus-moura-pinho-55a25b186/))
 
-# Projeto Embrapa Vitivinicultura
+# Projeto WeatherLearning
 
 Este projeto consiste em... (a decidir)
 
