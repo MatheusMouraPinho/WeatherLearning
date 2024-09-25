@@ -6,28 +6,26 @@
 
 # Projeto WeatherLearning
 
-Este projeto consiste em... (a decidir)
+O projeto WeatherLearning é um sistema de aprendizado de máquina para previsão de temperaturas mínimas e máximas com base em dados meteorológicos, utilizando o modelo Random Forest.
 
 - Fonte de dados:
-   - https://openweathermap.org/
+   - (a decidir)
 
 ## Estrutura do Projeto (pendente)
 
     WeatherLearning/
-    ├── .venv/
+    ├── .venv/                          # Ambiente virtual
     ├── csv/
-    │   ├── historico/
-    │   │   └── dados_base.csv
-    │   └── previsao/
-    │       ├── previsao_tempo_13_09_2024.csv
-    │       └── dados_treinamento.csv
-    ├── modelos/
+    │   ├── previsoes/                  # Previsões geradas pelo modelo
+    │   │   └── previsao_24_09_2024.csv
+    │   ├── dados_atual.csv             # Dados atuais para previsão
+    │   └── dados_treinamento.csv       # Dados históricos para treinamento do modelo
+    ├── modelos/                        # Modelos treinados
     │   └── modelo_temperatura.pkl
-    ├── scripts/
-    │   ├── api_weather.py
-    │   ├── gerar_modelo_linear.py
-    │   └── previsao_tempo_real.py
+    ├── .env                            # Arquivo com credenciais da AWS
     ├── .gitignore
-    ├── requirements.txt
-    └── README.md
+    ├── gerar_modelo.py                 # Script para treinar o modelo
+    ├── previsao_tempo_real.py          # Script para gerar previsões
+    ├── README.md
+    └── requirements.txt                # Lista de dependências do projeto
 
