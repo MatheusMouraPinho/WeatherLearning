@@ -1,7 +1,7 @@
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import boto3
 from io import StringIO
@@ -23,19 +23,32 @@ df_historico['mes'] = df_historico['data'].dt.month
 df_historico['ano'] = df_historico['data'].dt.year
 
 features = ['umidade', 'velocidade_vento', 'dia_semana', 'mes', 'ano']
-X_futuros = df_historico[features]
+X_historico = df_historico[features]
+
+dias_futuros = 30
+data_inicial = df_historico['data'].max() + timedelta(days=1)
+datas_futuras = [data_inicial + timedelta(days=i) for i in range(dias_futuros)]
+
+df_futuros = pd.DataFrame({
+    'data': datas_futuras,
+    'umidade': df_historico['umidade'].values[-dias_futuros:],
+    'velocidade_vento': df_historico['velocidade_vento'].values[-dias_futuros:]
+})
+
+df_futuros['dia_semana'] = df_futuros['data'].dt.dayofweek
+df_futuros['mes'] = df_futuros['data'].dt.month
+df_futuros['ano'] = df_futuros['data'].dt.year
+
+X_futuros = df_futuros[features]
 
 previsoes_rf = modelo_rf.predict(X_futuros)
 
-df_historico['temp_min_prevista'] = previsoes_rf[:, 0]
-df_historico['temp_max_prevista'] = previsoes_rf[:, 1]
-
-print("\nDataFrame com Previsões:")
-print(df_historico)
+df_futuros['temp_min_prevista'] = previsoes_rf[:, 0]
+df_futuros['temp_max_prevista'] = previsoes_rf[:, 1]
 
 plt.figure(figsize=(10, 5))
-plt.plot(df_historico['data'], df_historico['temp_min_prevista'], label='Temp Min Prevista', marker='o')
-plt.plot(df_historico['data'], df_historico['temp_max_prevista'], label='Temp Max Prevista', marker='x')
+plt.plot(df_futuros['data'], df_futuros['temp_min_prevista'], label='Temp Min Prevista', marker='o')
+plt.plot(df_futuros['data'], df_futuros['temp_max_prevista'], label='Temp Max Prevista', marker='x')
 plt.title('Previsões de Temperatura (Random Forest)')
 plt.xlabel('Data')
 plt.ylabel('Temperatura (°C)')
@@ -50,8 +63,7 @@ os.makedirs(previsoes_dir, exist_ok=True)
 data_atual = datetime.now().strftime('%d_%m_%Y')
 arquivo_previsao = f'previsao_{data_atual}.csv'
 
-df_historico.to_csv(os.path.join(previsoes_dir, arquivo_previsao), index=False)
-print(f"\nPrevisões salvas em '{previsoes_dir}/{arquivo_previsao}'.")
+df_futuros.to_csv(os.path.join(previsoes_dir, arquivo_previsao), index=False)
 
 aws_access_key_id = os.getenv('aws_access_key_id')
 aws_secret_access_key = os.getenv('aws_secret_access_key')
@@ -70,7 +82,7 @@ bucket_name = 'weather-learning-bucket'
 arquivo_saida = f'previsoes/{arquivo_previsao}'
 
 csv_buffer = StringIO()
-df_historico.to_csv(csv_buffer, index=False)
+df_futuros.to_csv(csv_buffer, index=False)
 
 s3_client.put_object(Bucket=bucket_name, Key=arquivo_saida, Body=csv_buffer.getvalue())
 print(f"Arquivo salvo no s3 em '{arquivo_saida}' no bucket '{bucket_name}'.")
