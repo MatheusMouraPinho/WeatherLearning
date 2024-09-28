@@ -6,6 +6,7 @@ import os
 import boto3
 from io import StringIO
 from dotenv import load_dotenv
+from botocore.exceptions import ClientError
 
 load_dotenv()
 
@@ -60,8 +61,8 @@ plt.show()
 
 previsoes_dir = 'csv/previsoes'
 os.makedirs(previsoes_dir, exist_ok=True)
-data_atual = datetime.now().strftime('%d_%m_%Y')
-arquivo_previsao = f'previsao_{data_atual}.csv'
+data_inicial = (df_historico['data'].max() + timedelta(days=1)).strftime('%d_%m_%Y')
+arquivo_previsao = f'previsao_{data_inicial}.csv'
 
 df_futuros.to_csv(os.path.join(previsoes_dir, arquivo_previsao), index=False)
 
@@ -84,5 +85,14 @@ arquivo_saida = f'previsoes/{arquivo_previsao}'
 csv_buffer = StringIO()
 df_futuros.to_csv(csv_buffer, index=False)
 
-s3_client.put_object(Bucket=bucket_name, Key=arquivo_saida, Body=csv_buffer.getvalue())
-print(f"Arquivo salvo no s3 em '{arquivo_saida}' no bucket '{bucket_name}'.")
+RED = "\033[91m"
+RESET = "\033[0m"
+
+try:
+    s3_client.put_object(Bucket=bucket_name, Key=arquivo_saida, Body=csv_buffer.getvalue())
+    print(f"Arquivo salvo no S3 em '{arquivo_saida}' no bucket '{bucket_name}'.")
+except ClientError as e:
+    if e.response['Error']['Code'] == 'InvalidAccessKeyId' or e.response['Error']['Code'] == 'AccessDenied':
+        print(f"Erro: As {RED}Credenciais{RESET} do {RED}AWS{RESET} são inválidas.")
+    else:
+        print(f"Erro ao tentar salvar o arquivo no S3: {e}")

@@ -6,7 +6,7 @@
 
 # Projeto WeatherLearning
 
-O projeto WeatherLearning é um sistema de aprendizado de máquina para previsão de temperaturas mínimas e máximas com base em dados meteorológicos, utilizando o modelo Random Forest.
+O projeto **WeatherLearning** é um sistema de aprendizado de máquina para previsão de temperaturas mínimas e máximas com base em dados meteorológicos, utilizando o modelo **Gradient Boosting** (XGBoost).
 
 - Fonte de dados:
    - (a decidir)
@@ -17,11 +17,11 @@ O projeto WeatherLearning é um sistema de aprendizado de máquina para previsã
     ├── .venv/                          # Ambiente virtual
     ├── csv/
     │   ├── previsoes/                  # Previsões geradas pelo modelo
-    │   │   └── previsao_24_09_2024.csv
+    │   │   └── previsao_24_09_2024.csv # Exemplo de previsão gerada
     │   ├── dados_atual.csv             # Dados atuais para previsão
     │   └── dados_treinamento.csv       # Dados históricos para treinamento do modelo
-    ├── modelos/                        # Modelos treinados
-    │   └── modelo_temperatura.pkl
+    ├── modelos/
+    │   └── modelo_temperatura.pkl      # Modelo Gradient Boosting treinado para previsão
     ├── .env                            # Arquivo com credenciais da AWS
     ├── .gitignore
     ├── gerar_modelo.py                 # Script para treinar o modelo

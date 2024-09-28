@@ -1,13 +1,17 @@
+import os
+import joblib
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
+import xgboost as xgb
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 
+modelo_path = 'modelos/modelo_temperatura.pkl'
+
 df = pd.read_csv('csv/dados_treinamento.csv')
 
 df['data'] = pd.to_datetime(df['data'], format='%Y-%m-%d')
-df['dia_semana'] = df['data'].dt.dayofweek  # 0 = Segunda-feira, 6 = Domingo
+df['dia_semana'] = df['data'].dt.dayofweek
 df['mes'] = df['data'].dt.month
 df['ano'] = df['data'].dt.year
 
@@ -19,42 +23,57 @@ y = df[targets]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-rf = RandomForestRegressor(random_state=42)
+xgb_model = xgb.XGBRegressor(
+    tree_method='hist',
+    random_state=42,
+    # device='cuda',
+    nthread=12
+)
 
 param_grid = {
-    'n_estimators': [100, 200, 500],
-    'max_depth': [10, 20, 30],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 5],
-    'max_features': ['sqrt', 'log2']
+    'n_estimators': [200, 400, 600],
+    'max_depth': [10, 30],
+    'min_child_weight': [1, 3],
+    'learning_rate': [0.01, 0.05],
+    'colsample_bytree': [0.8],
+    'subsample': [0.8],
+    'gamma': [0, 0.1]
 }
 
-grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=3, scoring='neg_mean_squared_error', verbose=2, n_jobs=-1)
+grid_search = GridSearchCV(
+    estimator=xgb_model,
+    param_grid=param_grid,
+    cv=4,
+    scoring='neg_mean_squared_error',
+    verbose=2,
+    n_jobs=4
+)
 
 grid_search.fit(X_train, y_train)
 
-print("Melhores parâmetros encontrados:", grid_search.best_params_)
+modelo_rf = grid_search.best_estimator_
 
-best_rf_model = grid_search.best_estimator_
+os.makedirs('modelos', exist_ok=True)  # Cria o diretório se não existir
+joblib.dump(modelo_rf, modelo_path)
+print(f"Modelo treinado e salvo em '{modelo_path}'.")
 
-# teste model
-y_pred_rf = best_rf_model.predict(X_test)
+y_pred_xgb = modelo_rf.predict(X_test)
 
-mse_min_rf = mean_squared_error(y_test['temp_min'], y_pred_rf[:, 0])
-r2_min_rf = r2_score(y_test['temp_min'], y_pred_rf[:, 0])
-mse_max_rf = mean_squared_error(y_test['temp_max'], y_pred_rf[:, 1])
-r2_max_rf = r2_score(y_test['temp_max'], y_pred_rf[:, 1])
+mse_min_xgb = mean_squared_error(y_test['temp_min'], y_pred_xgb[:, 0])
+r2_min_xgb = r2_score(y_test['temp_min'], y_pred_xgb[:, 0])
+mse_max_xgb = mean_squared_error(y_test['temp_max'], y_pred_xgb[:, 1])
+r2_max_xgb = r2_score(y_test['temp_max'], y_pred_xgb[:, 1])
 
-print(f'MSE (temp_min): {mse_min_rf}')
-print(f'R² (temp_min): {r2_min_rf}')
-print(f'MSE (temp_max): {mse_max_rf}')
-print(f'R² (temp_max): {r2_max_rf}')
+print(f'MSE (temp_min): {mse_min_xgb}')
+print(f'R² (temp_min): {r2_min_xgb}')
+print(f'MSE (temp_max): {mse_max_xgb}')
+print(f'R² (temp_max): {r2_max_xgb}')
 
 plt.figure(figsize=(12, 6))
 
 plt.subplot(1, 2, 1)
 plt.plot(y_test['temp_min'].values, label='Temp Min Real', marker='o')
-plt.plot(y_pred_rf[:, 0], label='Temp Min Prevista', marker='x')
+plt.plot(y_pred_xgb[:, 0], label='Temp Min Prevista', marker='x')
 plt.title('Comparação de Temperatura Mínima (Real vs Prevista)')
 plt.xlabel('Amostras')
 plt.ylabel('Temperatura (°C)')
@@ -63,7 +82,7 @@ plt.grid(True)
 
 plt.subplot(1, 2, 2)
 plt.plot(y_test['temp_max'].values, label='Temp Max Real', marker='o')
-plt.plot(y_pred_rf[:, 1], label='Temp Max Prevista', marker='x')
+plt.plot(y_pred_xgb[:, 1], label='Temp Max Prevista', marker='x')
 plt.title('Comparação de Temperatura Máxima (Real vs Prevista)')
 plt.xlabel('Amostras')
 plt.ylabel('Temperatura (°C)')
