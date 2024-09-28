@@ -12,28 +12,30 @@ load_dotenv()
 
 modelo_path = 'modelos/modelo_temperatura.pkl'
 modelo_rf = joblib.load(modelo_path)
-print("Modelo Random Forest carregado com sucesso!")
+print("Modelo carregado com sucesso!")
 
 df_historico = pd.read_csv('csv/dados_atual.csv')
 print("\nDados de previsão carregados:")
 print(df_historico)
 
-df_historico['data'] = pd.to_datetime(df_historico['data'], format='%Y-%m-%d')
-df_historico['dia_semana'] = df_historico['data'].dt.dayofweek  # 0 = Segunda-feira, 6 = Domingo
+df_historico['data'] = pd.to_datetime(df_historico['date'], format='%Y-%m-%d')
+df_historico['dia_semana'] = df_historico['data'].dt.dayofweek
 df_historico['mes'] = df_historico['data'].dt.month
 df_historico['ano'] = df_historico['data'].dt.year
 
-features = ['umidade', 'velocidade_vento', 'dia_semana', 'mes', 'ano']
+features = ['wdir', 'wspd', 'pres', 'dia_semana', 'mes', 'ano']
 X_historico = df_historico[features]
 
 dias_futuros = 30
 data_inicial = df_historico['data'].max() + timedelta(days=1)
 datas_futuras = [data_inicial + timedelta(days=i) for i in range(dias_futuros)]
+data_final = datas_futuras[-1]
 
 df_futuros = pd.DataFrame({
     'data': datas_futuras,
-    'umidade': df_historico['umidade'].values[-dias_futuros:],
-    'velocidade_vento': df_historico['velocidade_vento'].values[-dias_futuros:]
+    'wdir': df_historico['wdir'].values[-dias_futuros:],
+    'wspd': df_historico['wspd'].values[-dias_futuros:],
+    'pres': df_historico['pres'].values[-dias_futuros:]
 })
 
 df_futuros['dia_semana'] = df_futuros['data'].dt.dayofweek
@@ -50,7 +52,7 @@ df_futuros['temp_max_prevista'] = previsoes_rf[:, 1]
 plt.figure(figsize=(10, 5))
 plt.plot(df_futuros['data'], df_futuros['temp_min_prevista'], label='Temp Min Prevista', marker='o')
 plt.plot(df_futuros['data'], df_futuros['temp_max_prevista'], label='Temp Max Prevista', marker='x')
-plt.title('Previsões de Temperatura (Random Forest)')
+plt.title('Previsões de Temperatura')
 plt.xlabel('Data')
 plt.ylabel('Temperatura (°C)')
 plt.legend()
@@ -61,8 +63,11 @@ plt.show()
 
 previsoes_dir = 'csv/previsoes'
 os.makedirs(previsoes_dir, exist_ok=True)
-data_inicial = (df_historico['data'].max() + timedelta(days=1)).strftime('%d_%m_%Y')
-arquivo_previsao = f'previsao_{data_inicial}.csv'
+
+data_inicial_str = data_inicial.strftime('%d_%m_%Y')
+data_final_str = data_final.strftime('%d_%m_%Y')
+
+arquivo_previsao = f'{data_inicial_str}_a_{data_final_str}.csv'
 
 df_futuros.to_csv(os.path.join(previsoes_dir, arquivo_previsao), index=False)
 

@@ -9,7 +9,7 @@
 O projeto **WeatherLearning** é um sistema de aprendizado de máquina para previsão de temperaturas mínimas e máximas com base em dados meteorológicos, utilizando o modelo **Gradient Boosting** (XGBoost).
 
 - Fonte de dados:
-   - (a decidir)
+   - https://meteostat.net/
 
 ## Estrutura do Projeto (pendente)
 

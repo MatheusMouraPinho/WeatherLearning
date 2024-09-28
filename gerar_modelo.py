@@ -10,13 +10,13 @@ modelo_path = 'modelos/modelo_temperatura.pkl'
 
 df = pd.read_csv('csv/dados_treinamento.csv')
 
-df['data'] = pd.to_datetime(df['data'], format='%Y-%m-%d')
+df['data'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
 df['dia_semana'] = df['data'].dt.dayofweek
 df['mes'] = df['data'].dt.month
 df['ano'] = df['data'].dt.year
 
-features = ['umidade', 'velocidade_vento', 'dia_semana', 'mes', 'ano']
-targets = ['temp_min', 'temp_max']
+features = ['wdir', 'wspd', 'pres', 'dia_semana', 'mes', 'ano']
+targets = ['tmin', 'tmax']
 
 X = df[features]
 y = df[targets]
@@ -53,26 +53,26 @@ grid_search.fit(X_train, y_train)
 
 modelo_rf = grid_search.best_estimator_
 
-os.makedirs('modelos', exist_ok=True)  # Cria o diretório se não existir
+os.makedirs('modelos', exist_ok=True)
 joblib.dump(modelo_rf, modelo_path)
 print(f"Modelo treinado e salvo em '{modelo_path}'.")
 
 y_pred_xgb = modelo_rf.predict(X_test)
 
-mse_min_xgb = mean_squared_error(y_test['temp_min'], y_pred_xgb[:, 0])
-r2_min_xgb = r2_score(y_test['temp_min'], y_pred_xgb[:, 0])
-mse_max_xgb = mean_squared_error(y_test['temp_max'], y_pred_xgb[:, 1])
-r2_max_xgb = r2_score(y_test['temp_max'], y_pred_xgb[:, 1])
+mse_min_xgb = mean_squared_error(y_test['tmin'], y_pred_xgb[:, 0])
+r2_min_xgb = r2_score(y_test['tmin'], y_pred_xgb[:, 0])
+mse_max_xgb = mean_squared_error(y_test['tmax'], y_pred_xgb[:, 1])
+r2_max_xgb = r2_score(y_test['tmax'], y_pred_xgb[:, 1])
 
-print(f'MSE (temp_min): {mse_min_xgb}')
-print(f'R² (temp_min): {r2_min_xgb}')
-print(f'MSE (temp_max): {mse_max_xgb}')
-print(f'R² (temp_max): {r2_max_xgb}')
+print(f'MSE (tmin): {mse_min_xgb}')
+print(f'R² (tmin): {r2_min_xgb}')
+print(f'MSE (tmax): {mse_max_xgb}')
+print(f'R² (tmax): {r2_max_xgb}')
 
 plt.figure(figsize=(12, 6))
 
 plt.subplot(1, 2, 1)
-plt.plot(y_test['temp_min'].values, label='Temp Min Real', marker='o')
+plt.plot(y_test['tmin'].values, label='Temp Min Real', marker='o')
 plt.plot(y_pred_xgb[:, 0], label='Temp Min Prevista', marker='x')
 plt.title('Comparação de Temperatura Mínima (Real vs Prevista)')
 plt.xlabel('Amostras')
@@ -81,7 +81,7 @@ plt.legend()
 plt.grid(True)
 
 plt.subplot(1, 2, 2)
-plt.plot(y_test['temp_max'].values, label='Temp Max Real', marker='o')
+plt.plot(y_test['tmax'].values, label='Temp Max Real', marker='o')
 plt.plot(y_pred_xgb[:, 1], label='Temp Max Prevista', marker='x')
 plt.title('Comparação de Temperatura Máxima (Real vs Prevista)')
 plt.xlabel('Amostras')
