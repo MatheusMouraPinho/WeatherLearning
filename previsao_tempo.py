@@ -7,6 +7,8 @@ import boto3
 from io import StringIO
 from dotenv import load_dotenv
 from botocore.exceptions import ClientError
+import glob
+import re
 
 load_dotenv()
 
@@ -14,7 +16,26 @@ modelo_path = 'modelos/modelo_temperatura.pkl'
 modelo_rf = joblib.load(modelo_path)
 print("Modelo carregado com sucesso!")
 
-df_historico = pd.read_csv('csv/dados_atual.csv')
+diretorio_historico = 'csv/historico'
+
+padrao_arquivos = '*_a_*.csv'
+
+arquivos = glob.glob(os.path.join(diretorio_historico, padrao_arquivos))
+
+if not arquivos:
+    print("Sem dados de hoje aqui.")
+    exit()
+
+arquivos_sorted = sorted(
+    arquivos,
+    key=lambda x: datetime.strptime(re.search(r'_(\d{2}_\d{2}_\d{4})\.csv$', x).group(1), '%d_%m_%Y'),
+    reverse=True
+)
+
+arquivo_mais_recente = arquivos_sorted[0]
+print(f"Arquivo histórico encontrado: {arquivo_mais_recente}")
+
+df_historico = pd.read_csv(arquivo_mais_recente)
 print("\nDados de previsão carregados:")
 print(df_historico)
 
