@@ -11,7 +11,7 @@ O projeto **WeatherLearning** é um sistema de aprendizado de máquina para prev
 - Fonte de dados:
    - https://meteostat.net/
 
-## Estrutura do Projeto (pendente)
+## Estrutura do Projeto
 
     WeatherLearning/
     ├── .venv/                                # Ambiente virtual
