@@ -19,7 +19,6 @@ from selenium.webdriver.support.ui import Select
 logging.basicConfig(level=logging.DEBUG)
 app = FastAPI()
 
-# Configurações AWS
 aws_access_key_id = os.getenv('aws_access_key_id')
 aws_secret_access_key = os.getenv('aws_secret_access_key')
 aws_session_token = os.getenv('aws_session_token')
@@ -51,7 +50,6 @@ chrome_options.add_experimental_option("prefs", {
     "safebrowsing.enabled": True
 })
 
-# Função para definir o diretório de download dinamicamente
 def get_download_dir(tipo: str):
     if tipo == 'dias':
         return DOWNLOAD_DIR_HISTORICO
@@ -145,7 +143,6 @@ def get_wind_pressure(
 
     logging.info(f"Acessando a URL: {url}")
 
-    # Configurar opções de download dinâmicas
     chrome_options.add_experimental_option("prefs", {
         "download.default_directory": download_dir,
         "download.prompt_for_download": False,
