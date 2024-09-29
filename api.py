@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -19,6 +19,7 @@ from selenium.webdriver.support.ui import Select
 logging.basicConfig(level=logging.DEBUG)
 app = FastAPI()
 
+# Configurações AWS
 aws_access_key_id = os.getenv('aws_access_key_id')
 aws_secret_access_key = os.getenv('aws_secret_access_key')
 aws_session_token = os.getenv('aws_session_token')
@@ -36,7 +37,8 @@ bucket_name = 'weather-learning-bucket'
 
 BASE_URL = os.getenv("BASE_URL", "https://meteostat.net/pt/place/br/sao-paulo")
 
-DOWNLOAD_DIR = os.path.abspath("csv/historico")
+DOWNLOAD_DIR_HISTORICO = os.path.abspath("csv/historico")
+DOWNLOAD_DIR_ANOS = os.path.abspath("csv")
 
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")
@@ -44,13 +46,22 @@ chrome_options.add_argument("--disable-gpu")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_experimental_option("prefs", {
-    "download.default_directory": DOWNLOAD_DIR,
     "download.prompt_for_download": False,
     "download.directory_upgrade": True,
     "safebrowsing.enabled": True
 })
 
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+# Função para definir o diretório de download dinamicamente
+def get_download_dir(tipo: str):
+    if tipo == 'dias':
+        return DOWNLOAD_DIR_HISTORICO
+    elif tipo == 'anos':
+        return DOWNLOAD_DIR_ANOS
+    else:
+        raise ValueError("Tipo inválido para diretório de download.")
+
+os.makedirs(DOWNLOAD_DIR_HISTORICO, exist_ok=True)
+os.makedirs(DOWNLOAD_DIR_ANOS, exist_ok=True)
 
 def fetch_data_from_csv(download_path: str):
     try:
@@ -72,9 +83,9 @@ def upload_to_s3_file(file_path, bucket_name, arquivo_saida):
         else:
             logging.error(f"Erro ao enviar o arquivo para o S3: {e}")
 
-def clear_download_dir():
+def clear_download_dir(download_dir: str):
     try:
-        export_file = os.path.join(DOWNLOAD_DIR, "export.csv")
+        export_file = os.path.join(download_dir, "export.csv")
         if os.path.exists(export_file):
             os.remove(export_file)
             logging.debug(f"Arquivo removido: {export_file}")
@@ -86,29 +97,61 @@ def clear_download_dir():
 
 @app.get(
     "/scrape_wind_pressure",
-    summary="Velocidade do Vento e Pressão do Ar",
-    response_description="Retorna a Velocidade do Vento e Pressão do Ar extraídos de um intervalo de dias.",
+    summary="Dados meteorológicos",
+    response_description="Retorna os dados meteorológicos para treinamento do modelo (anos) ou dados históricos para previsão (dias).",
     response_model=dict
 )
 def get_wind_pressure(
-    days: int = Query(
-        30,
-        ge=30,
-        description="Número de dias para buscar a partir da data de hoje. Mínimo de 30 dias."
-    )
+        dias: int = Query(
+            None,
+            ge=30,
+            description="**Dados históricos para previsão**: Informe o número de dias a partir de hoje. Exemplo: 'dias=30' para obter dados históricos dos últimos 30 dias."
+        ),
+        anos: int = Query(
+            None,
+            ge=1,
+            le=(datetime.now().year - 2022),
+            description="**Dados para treinamento**: Informe a quantidade de anos, começando em 2022. Exemplo: 'anos=2' para obter dados de treinamento desde 2022."
+        )
 ):
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=days)
+    if (dias is not None and anos is not None) or (dias is None and anos is None):
+        raise HTTPException(status_code=400, detail="Você deve fornecer **apenas** 'dias' ou 'anos', mas não ambos.")
+
+    if dias is not None:
+        tipo = 'dias'
+        download_dir = DOWNLOAD_DIR_HISTORICO
+        start_date = datetime.now() - timedelta(days=dias)
+        end_date = datetime.now()
+    else:
+        tipo = 'anos'
+        download_dir = DOWNLOAD_DIR_ANOS
+        start_year = 2022
+        end_year = start_year + anos - 1
+        start_date = datetime(start_year, 1, 1)
+        end_date = datetime(end_year, 12, 31)
 
     start_date_str = start_date.strftime("%d_%m_%Y")
     end_date_str = end_date.strftime("%d_%m_%Y")
 
-    arquivo_historico = f'{start_date_str}_a_{end_date_str}.csv'
-    logging.info(f"Nome do arquivo histórico: {arquivo_historico}")
+    if tipo == 'dias':
+        arquivo_saida_s3 = f'historico/{start_date_str}_a_{end_date_str}.csv'
+    else:
+        arquivo_saida_s3 = 'dados_treinamento.csv'
+
+    logging.info(f"Tipo de operação: {tipo}")
+    logging.info(f"Nome do arquivo de saída para S3: {arquivo_saida_s3}")
 
     url = f"{BASE_URL}?s=83779&t={start_date.strftime('%Y-%m-%d')}/{end_date.strftime('%Y-%m-%d')}"
 
     logging.info(f"Acessando a URL: {url}")
+
+    # Configurar opções de download dinâmicas
+    chrome_options.add_experimental_option("prefs", {
+        "download.default_directory": download_dir,
+        "download.prompt_for_download": False,
+        "download.directory_upgrade": True,
+        "safebrowsing.enabled": True
+    })
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     try:
@@ -162,17 +205,17 @@ def get_wind_pressure(
             logging.error(f"Erro ao clicar no botão 'Salvar': {str(e)}")
             return {"erro": "Falha ao iniciar o download do CSV."}
 
-        timeout = 20
+        timeout = 30
         polling_interval = 1
         elapsed = 0
         download_file = None
 
         while elapsed < timeout:
-            files = os.listdir(DOWNLOAD_DIR)
-            logging.debug(f"Arquivos encontrados: {files}")
+            files = os.listdir(download_dir)
+            logging.debug(f"Arquivos encontrados no diretório '{download_dir}': {files}")
             for file in files:
-                if file.endswith(".csv"):
-                    download_file = os.path.join(DOWNLOAD_DIR, file)
+                if file.endswith(".csv") and not file.startswith('.'):
+                    download_file = os.path.join(download_dir, file)
 
                     if os.path.getsize(download_file) > 0:
                         logging.info(f"Download concluído: {download_file}")
@@ -186,7 +229,11 @@ def get_wind_pressure(
             logging.error("O download do CSV não foi concluído no tempo esperado.")
             return {"erro": "Falha ao baixar o CSV dentro do tempo esperado."}
 
-        arquivo_final_path = os.path.join(DOWNLOAD_DIR, arquivo_historico)
+        if tipo == 'dias':
+            arquivo_final_path = os.path.join(download_dir, f'{start_date_str}_a_{end_date_str}.csv')
+        else:
+            arquivo_final_path = os.path.join(download_dir, 'dados_treinamento.csv')
+
         try:
             os.rename(download_file, arquivo_final_path)
             logging.info(f"Arquivo renomeado para '{arquivo_final_path}'.")
@@ -194,21 +241,15 @@ def get_wind_pressure(
             logging.error(f"Erro ao renomear o arquivo: {str(e)}")
             return {"erro": "Falha ao renomear o arquivo baixado."}
 
-        for file in os.listdir(DOWNLOAD_DIR):
-            if file == "export.csv":
-                try:
-                    os.remove(os.path.join(DOWNLOAD_DIR, file))
-                    logging.info("Arquivo 'export.csv' removido com sucesso.")
-                except Exception as e:
-                    logging.error(f"Erro ao remover 'export.csv': {str(e)}")
+        if tipo == 'dias':
+            clear_download_dir(download_dir)
 
         df = fetch_data_from_csv(arquivo_final_path)
 
         if df.empty:
             return {"erro": "Nenhum dado foi encontrado no CSV baixado."}
 
-        arquivo_saida = f'historico/{arquivo_historico}'
-        upload_to_s3_file(arquivo_final_path, bucket_name, arquivo_saida)
+        upload_to_s3_file(arquivo_final_path, bucket_name, arquivo_saida_s3)
 
         return {"mensagem": "Dados processados e enviados com sucesso.", "dados": df.to_dict(orient='records')}
 
@@ -218,4 +259,4 @@ def get_wind_pressure(
 
     finally:
         driver.quit()
-        clear_download_dir()
+        clear_download_dir(download_dir)
