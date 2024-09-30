@@ -26,6 +26,7 @@ O projeto **WeatherLearning** é um sistema de aprendizado de máquina para prev
     ├── .env                                  # Arquivo com credenciais da AWS
     ├── .gitignore
     ├── api.py                                # API que coleta os dados da fonte
+    ├── dashboard.ipynb                       # Dashboard com o grafico comparativo de historico e previsão
     ├── gerar_modelo.py                       # Script para treinar o modelo
     ├── previsao_tempo.py                     # Script para gerar previsões
     ├── README.md
